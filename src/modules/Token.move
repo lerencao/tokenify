@@ -3,63 +3,59 @@ module Token {
     use 0x1::Event;
     use 0x1::Signer;
 
-    // The currency has a `CoinType` color that tells us what currency the
-    // `value` inside represents.
+    /// The currency has a `CoinType` color that tells us what currency the
+    /// `value` inside represents.
     resource struct Coin<Token: resource> {
         value: u64,
     }
 
-    // A minting capability allows coins of type `CoinType` to be minted
+    /// A minting capability allows coins of type `CoinType` to be minted
     resource struct MintCapability<Token: resource> {
-        enabled: bool
+        enabled: bool,
     }
 
-    // A burn capability allows coins of type `CoinType` to be burned
+    /// A burn capability allows coins of type `CoinType` to be burned
     resource struct BurnCapability<Token: resource> { }
 
-
     struct MintEvent {
-        // funds added to the system
+        /// funds added to the system
         amount: u64,
-        // UTF-8 encoded symbol for the coin type (e.g., "STC")
+        /// UTF-8 encoded symbol for the coin type (e.g., "STC")
         currency_code: vector<u8>,
     }
 
     struct BurnEvent {
-        // funds removed from the system
+        /// funds removed from the system
         amount: u64,
-        // UTF-8 encoded symbol for the coin type (e.g., "STC")
+        /// UTF-8 encoded symbol for the coin type (e.g., "STC")
         currency_code: vector<u8>,
-        // address with the Preburn resource that stored the now-burned funds
+        /// address with the Preburn resource that stored the now-burned funds
         preburn_address: address,
     }
 
     struct PreburnEvent {
-        // funds waiting to be removed from the system
+        /// funds waiting to be removed from the system
         amount: u64,
-        // UTF-8 encoded symbol for the coin type (e.g., "STC")
+        /// UTF-8 encoded symbol for the coin type (e.g., "STC")
         currency_code: vector<u8>,
-        // address with the Preburn resource that now holds the funds
+        /// address with the Preburn resource that now holds the funds
         preburn_address: address,
     }
 
     struct CancelBurnEvent {
-        // funds returned
+        /// funds returned
         amount: u64,
-        // UTF-8 encoded symbol for the coin type (e.g., "STC")
+        /// UTF-8 encoded symbol for the coin type (e.g., "STC")
         currency_code: vector<u8>,
-        // address with the Preburn resource that holds the now-returned funds
+        /// address with the Preburn resource that holds the now-returned funds
         preburn_address: address,
     }
 
-    // The information for every supported currency is stored in a resource
-    // under the `issuer_addr()` address. Unless they are specified
-    // otherwise the fields in this resource are immutable.
     resource struct CurrencyInfo<CoinType: resource> {
-        // The total value for the currency represented by
-        // `CoinType`. Mutable.
+        /// The total value for the currency represented by
+        /// `CoinType`. Mutable.
         total_value: u128,
-        // Value of funds that are in the process of being burned
+        /// Value of funds that are in the process of being burned
         preburn_value: u64,
         //TODO remove this.
         is_synthetic: bool,
@@ -83,7 +79,6 @@ module Token {
         cancel_burn_events: Event::EventHandle<CancelBurnEvent>,
     }
 
-
     // An association account holding this privilege can add/remove the
     // currencies from the system.
     struct AddCurrency { }
@@ -91,41 +86,45 @@ module Token {
     ///////////////////////////////////////////////////////////////////////////
     // Initialization and granting of privileges
     ///////////////////////////////////////////////////////////////////////////
-
-
-
-    public fun apply_for_mint_capability<TokenType: resource>(signer: &signer, token_address: address) {
+    public fun apply_for_mint_capability<TokenType: resource>(
+        signer: &signer,
+        token_address: address,
+    ) {
         assert(is_registered_in<TokenType>(token_address), 43);
-        move_to(signer, MintCapability<TokenType> {enabled: false})
+        move_to(signer, MintCapability<TokenType> { enabled: false })
     }
+
     public fun approve_mint_capability<TokenType: resource>(_token: &TokenType, account: address)
     acquires MintCapability {
         borrow_global_mut<MintCapability<TokenType>>(account).enabled = true
     }
 
-    public fun remove_mint_capability<TokenType: resource>(_token: &TokenType, account: address): MintCapability<TokenType>
-    acquires MintCapability {
+    public fun remove_mint_capability<TokenType: resource>(
+        _token: &TokenType,
+        account: address,
+    ): MintCapability<TokenType> acquires MintCapability {
         move_from<MintCapability<TokenType>>(account)
     }
 
     // Returns a MintCapability for the `CoinType` currency. `CoinType`
     // must be a registered currency type.
-    public fun create_mint_capability<CoinType: resource>(_token: &CoinType): MintCapability<CoinType> {
-        MintCapability<CoinType> {enabled: true}
+    public fun create_mint_capability<CoinType: resource>(
+        _token: &CoinType,
+    ): MintCapability<CoinType> {
+        MintCapability<CoinType> { enabled: true }
     }
 
     public fun destroy_mint_capability<Token: resource>(cap: MintCapability<Token>) {
-        let MintCapability<Token> {
-            enabled: _enabled
-        } = cap;
+        let MintCapability<Token>{ enabled: _enabled } = cap;
     }
-
-
 
     // Return `amount` coins.
     // Fails if the sender does not have a published MintCapability.
-    public fun mint<Token: resource>(account: &signer, amount: u64, token_address: address): Coin<Token>
-    acquires CurrencyInfo, MintCapability {
+    public fun mint<Token: resource>(
+        account: &signer,
+        amount: u64,
+        token_address: address,
+    ): Coin<Token> acquires CurrencyInfo, MintCapability {
         mint_with_capability(
             amount,
             token_address,
@@ -136,9 +135,11 @@ module Token {
     // Mint a new Coin::Coin worth `value`. The caller must have a reference to a MintCapability.
     // Only the Association account can acquire such a reference, and it can do so only via
     // `borrow_sender_mint_capability`
-    public fun mint_with_capability<Token: resource>(value: u64,token_address: address, capability: &MintCapability<Token>): Coin<
-        Token,
-    > acquires CurrencyInfo {
+    public fun mint_with_capability<Token: resource>(
+        value: u64,
+        token_address: address,
+        capability: &MintCapability<Token>,
+    ): Coin<Token> acquires CurrencyInfo {
         assert(capability.enabled, 10000);
         // update market cap resource to reflect minting
         let info = borrow_global_mut<CurrencyInfo<Token>>(token_address);
@@ -147,13 +148,6 @@ module Token {
         // don't emit mint events for synthetic currenices
         Coin<Token> { value }
     }
-
-    public fun accept_coin<CoinType: resource>(signer: &signer, token_address: address) {
-        assert(is_registered_in<TokenType>(token_address), 43);
-        let coin = Token::zero<CoinType>();
-        move_to(signer, coin);
-    }
-
 
     // Create a new Coin::Coin<CoinType> with a value of 0
     public fun zero<CoinType: resource>(): Coin<CoinType> {
@@ -167,10 +161,10 @@ module Token {
 
     // Splits the given coin into two and returns them both
     // It leverages `Self::withdraw` for any verifications of the values
-    public fun split<CoinType: resource>(coin: Coin<CoinType>, amount: u64): (
-        Coin<CoinType>,
-        Coin<CoinType>,
-    ) {
+    public fun split<CoinType: resource>(
+        coin: Coin<CoinType>,
+        amount: u64,
+    ): (Coin<CoinType>, Coin<CoinType>) {
         let other = withdraw(&mut coin, amount);
         (coin, other)
     }
@@ -179,7 +173,10 @@ module Token {
     // The original coin will have value = original value - `amount`
     // The new coin will have a value = `amount`
     // Fails if the coins value is less than `amount`
-    public fun withdraw<CoinType: resource>(coin: &mut Coin<CoinType>, amount: u64): Coin<CoinType> {
+    public fun withdraw<CoinType: resource>(
+        coin: &mut Coin<CoinType>,
+        amount: u64,
+    ): Coin<CoinType> {
         // Check that `amount` is less than the coin's value
         assert(coin.value >= amount, 10);
         coin.value = coin.value - amount;
@@ -188,7 +185,10 @@ module Token {
 
     // Merges two coins of the same currency and returns a new coin whose
     // value is equal to the sum of the two inputs
-    public fun join<CoinType: resource>(coin1: Coin<CoinType>, coin2: Coin<CoinType>): Coin<CoinType> {
+    public fun join<CoinType: resource>(
+        coin1: Coin<CoinType>,
+        coin2: Coin<CoinType>,
+    ): Coin<CoinType> {
         deposit(&mut coin1, coin2);
         coin1
     }
@@ -241,8 +241,7 @@ module Token {
     }
 
     // Return the total amount of currency minted of type `CoinType`
-    public fun market_cap<CoinType: resource>(token_address: address): u128
-    acquires CurrencyInfo {
+    public fun market_cap<CoinType: resource>(token_address: address): u128 acquires CurrencyInfo {
         borrow_global<CurrencyInfo<CoinType>>(token_address).total_value
     }
 
@@ -251,13 +250,15 @@ module Token {
         exists<CurrencyInfo<CoinType>>(token_address)
     }
 
-
     // There may be situations in which we disallow the further minting of
     // coins in the system without removing the currency. This function
     // allows the association to control whether or not further coins of
     // `CoinType` can be minted or not.
-    public fun update_minting_ability<CoinType: resource>(account: &signer, _token: &CoinType, can_mint: bool)
-    acquires CurrencyInfo {
+    public fun update_minting_ability<CoinType: resource>(
+        account: &signer,
+        _token: &CoinType,
+        can_mint: bool,
+    ) acquires CurrencyInfo {
         let currency_info = borrow_global_mut<CurrencyInfo<CoinType>>(Signer::address_of(account));
         currency_info.can_mint = can_mint;
     }
