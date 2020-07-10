@@ -1,0 +1,7 @@
+[package]
+name = "tokenify"
+description = ""
+
+[profile]
+skip_stdlib_deps = false
+dialect = "Libra"
