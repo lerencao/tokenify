@@ -14,9 +14,6 @@ module Token {
         enabled: bool,
     }
 
-    /// A burn capability allows coins of type `CoinType` to be burned
-    resource struct BurnCapability<Token: resource> { }
-
     struct MintEvent {
         /// funds added to the system
         amount: u64,
@@ -99,11 +96,18 @@ module Token {
         borrow_global_mut<MintCapability<TokenType>>(account).enabled = true
     }
 
+    /// Used by Token Issuer to revoke `account`'s mint capability.
     public fun remove_mint_capability<TokenType: resource>(
         _token: &TokenType,
         account: address,
     ): MintCapability<TokenType> acquires MintCapability {
         move_from<MintCapability<TokenType>>(account)
+    }
+
+    public fun remove_my_mint_capability<TokenType: resource>(
+        signer: &signer,
+    ): MintCapability<TokenType> acquires MintCapability {
+        move_from<MintCapability<TokenType>>(Signer::address_of(signer))
     }
 
     // Returns a MintCapability for the `CoinType` currency. `CoinType`
