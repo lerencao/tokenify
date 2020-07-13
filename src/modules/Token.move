@@ -1,4 +1,4 @@
-address 0x2 {
+address 0x1 {
 module Token {
     use 0x1::Event;
     use 0x1::Signer;
