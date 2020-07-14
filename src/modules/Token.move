@@ -14,6 +14,10 @@ module Token {
         enabled: bool,
     }
 
+    resource struct BurnCapability<Token: resource> {
+        enabled: bool,
+    }
+
     struct MintEvent {
         /// funds added to the system
         amount: u64,
@@ -122,8 +126,25 @@ module Token {
         let MintCapability<Token>{ enabled: _enabled } = cap;
     }
 
-    // Return `amount` coins.
-    // Fails if the sender does not have a published MintCapability.
+    public fun create_burn_capability<TokenType: resource>(_token: &TokenType): BurnCapability<TokenType> {
+        BurnCapability<TokenType> {enabled: true}
+    }
+
+    /// There may be situations in which we disallow the further minting of
+    /// coins in the system without removing the currency. This function
+    /// allows the association to control whether or not further coins of
+    /// `CoinType` can be minted or not.
+    public fun update_minting_ability<CoinType: resource>(
+        account: &signer,
+        _token: &CoinType,
+        can_mint: bool,
+    ) acquires CurrencyInfo {
+        let currency_info = borrow_global_mut<CurrencyInfo<CoinType>>(Signer::address_of(account));
+        currency_info.can_mint = can_mint;
+    }
+
+    /// Return `amount` coins.
+    /// Fails if the sender does not have a published MintCapability.
     public fun mint<Token: resource>(
         account: &signer,
         amount: u64,
@@ -136,9 +157,9 @@ module Token {
         )
     }
 
-    // Mint a new Coin::Coin worth `value`. The caller must have a reference to a MintCapability.
-    // Only the Association account can acquire such a reference, and it can do so only via
-    // `borrow_sender_mint_capability`
+    /// Mint a new Coin::Coin worth `value`. The caller must have a reference to a MintCapability.
+    /// Only the Association account can acquire such a reference, and it can do so only via
+    /// `borrow_sender_mint_capability`
     public fun mint_with_capability<Token: resource>(
         value: u64,
         token_address: address,
@@ -151,6 +172,31 @@ module Token {
         info.total_value = info.total_value + (value as u128);
         // don't emit mint events for synthetic currenices
         Coin<Token> { value }
+    }
+
+
+    public fun burn<TokenType: resource>(
+        account: &signer,
+        token_address: address,
+        tokens: Coin<TokenType>,
+    ) acquires CurrencyInfo, BurnCapability {
+        burn_with_capability(
+            borrow_global<BurnCapability<TokenType>>(Signer::address_of(account)),
+            token_address,
+            tokens,
+        )
+    }
+
+    public fun burn_with_capability<Token: resource>(
+        capability: &BurnCapability<Token>,
+        token_address: address,
+        tokens: Coin<Token>,
+    ) acquires CurrencyInfo {
+        assert(capability.enabled, 401);
+        let info = borrow_global_mut<CurrencyInfo<Token>>(token_address);
+        let Coin {value} = tokens;
+        info.total_value = info.total_value - (value as u128);
+        // TODO: emit event
     }
 
     // Create a new Coin::Coin<CoinType> with a value of 0
@@ -227,6 +273,7 @@ module Token {
         fractional_part: u64,
     ) {
         move_to(account, create_mint_capability(token));
+        move_to(account, create_burn_capability(token));
         move_to(
             account,
             CurrencyInfo<CoinType> {
@@ -254,17 +301,5 @@ module Token {
         exists<CurrencyInfo<CoinType>>(token_address)
     }
 
-    // There may be situations in which we disallow the further minting of
-    // coins in the system without removing the currency. This function
-    // allows the association to control whether or not further coins of
-    // `CoinType` can be minted or not.
-    public fun update_minting_ability<CoinType: resource>(
-        account: &signer,
-        _token: &CoinType,
-        can_mint: bool,
-    ) acquires CurrencyInfo {
-        let currency_info = borrow_global_mut<CurrencyInfo<CoinType>>(Signer::address_of(account));
-        currency_info.can_mint = can_mint;
-    }
 }
 }

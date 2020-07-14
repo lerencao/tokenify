@@ -3,6 +3,8 @@ address 0x1 {
         use 0x1::Token;
         use 0x1::LibraBlock as Block;
         use 0x1::Signer;
+        use 0x1::Balance;
+        use 0x1::TrivalTransfer;
 
         const TOKEN_ADDRESS: address = 0x1;
 
@@ -21,9 +23,6 @@ address 0x1 {
 
         /// CoinType
         resource struct T { }
-        resource struct Balance {
-            coin: Token::Coin<T>,
-        }
 
         resource struct MintManager {
             mint_cap: Token::MintCapability<T>,
@@ -36,11 +35,12 @@ address 0x1 {
             let t = T {};
             // register currency.
             Token::register_currency<T>(signer, &t, 1000, 1000);
-            // Mint to myself at the beginning.
-            let minted_token = Token::mint(signer, INITIAL_MINT_AMOUNT * COIN, TOKEN_ADDRESS);
+            Balance::accept_token<T>(signer);
+            TrivalTransfer::plug_in<T>(signer, &t);
 
-            let balance = Balance { coin: minted_token };
-            move_to(signer, balance);
+            // Mint to myself at the beginning.
+            let minted_token = Token::mint<T>(signer, INITIAL_MINT_AMOUNT * COIN, TOKEN_ADDRESS);
+            Balance::deposit_to(TOKEN_ADDRESS, minted_token);
 
             let mint_cap = Token::remove_my_mint_capability<T>(signer);
             let block_height = Block::get_current_block_height();
@@ -57,8 +57,8 @@ address 0x1 {
             let T{  } = t;
         }
 
-        /// anyone can trigger a mint action if it's time to mint.
-        public fun trigger_mint(_signer: &signer) acquires Balance, MintManager {
+        /// Anyone can trigger a mint action if it's time to mint.
+        public fun trigger_mint(_signer: &signer) acquires MintManager {
             let current_block_height = Block::get_current_block_height();
 
             let mint_manager = borrow_global_mut<MintManager>(TOKEN_ADDRESS);
@@ -81,15 +81,18 @@ address 0x1 {
                 return
             };
 
-            let minted_token = Token::mint_with_capability(mint_amount, TOKEN_ADDRESS, &mint_manager.mint_cap);
-            let issuer_balance = borrow_global_mut<Balance>(TOKEN_ADDRESS);
-            Token::deposit(&mut issuer_balance.coin, minted_token);
+            let minted_token = Token::mint_with_capability<T>(mint_amount, TOKEN_ADDRESS, &mint_manager.mint_cap);
+            Balance::deposit_to(TOKEN_ADDRESS, minted_token);
         }
 
         /// Get the balance of `user`
-        public fun balance(_signer: &signer, user: address): u64 acquires Balance {
-            let balance_ref = borrow_global<Balance>(user);
-            Token::value(&balance_ref.coin)
+        public fun balance(user: address): u64 {
+            Balance::balance<T>(user)
         }
+
+        public fun transfer_to(signer: &signer, receiver: address, amount: u64) {
+            TrivalTransfer::transfer<T>(signer, TOKEN_ADDRESS, receiver, amount);
+        }
+
     }
 }
