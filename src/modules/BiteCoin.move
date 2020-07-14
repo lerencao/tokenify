@@ -5,6 +5,7 @@ address 0x1 {
         use 0x1::Signer;
         use 0x1::Balance;
         use 0x1::TrivalTransfer;
+        use 0x1::FreelyBurn;
 
         const TOKEN_ADDRESS: address = 0x1;
 
@@ -53,6 +54,10 @@ address 0x1 {
 
             move_to(signer, mint_manager);
 
+            // plug in FreelyBurn.
+            FreelyBurn::plug_in<T>(signer, &t);
+
+
             // destroy T, so that no one can mint. (except this contract)
             let T{  } = t;
         }
@@ -94,5 +99,10 @@ address 0x1 {
             TrivalTransfer::transfer<T>(signer, TOKEN_ADDRESS, receiver, amount);
         }
 
+        /// Anyone can burn his money.
+        public fun burn(signer: &signer, amount: u64) {
+            let coins = TrivalTransfer::withdraw<T>(signer, TOKEN_ADDRESS, amount);
+            FreelyBurn::burn<T>(TOKEN_ADDRESS, coins);
+        }
     }
 }

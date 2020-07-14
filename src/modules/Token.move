@@ -130,6 +130,11 @@ module Token {
         BurnCapability<TokenType> {enabled: true}
     }
 
+    public fun remove_burn_capability<TokenType: resource>(_token: &TokenType, account: address): BurnCapability<TokenType>
+    acquires BurnCapability {
+        move_from<BurnCapability<TokenType>>(account)
+    }
+
     /// There may be situations in which we disallow the further minting of
     /// coins in the system without removing the currency. This function
     /// allows the association to control whether or not further coins of
