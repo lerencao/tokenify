@@ -2,15 +2,12 @@ address 0x1 {
 module Balance {
     use 0x1::Token;
     use 0x1::Signer;
-    use 0x1::Option;
 
     resource struct Balance<TokenType: resource> {
         coin: Token::Coin<TokenType>,
     }
 
     resource struct WithdrawCapability<TokenType: resource> {
-        // from: address,
-        max_amount: Option::Option<u64>,
     }
 
     /// `Signer` calls this method to accept the Coin.
@@ -23,7 +20,7 @@ module Balance {
     public fun create_withdraw_capability<TokenType: resource>(
         _token: &TokenType,
     ): WithdrawCapability<TokenType> {
-        WithdrawCapability<TokenType> { max_amount: Option::none() }
+        WithdrawCapability<TokenType> { }
     }
 
     /// Get the balance of `user`
@@ -47,16 +44,10 @@ module Balance {
     }
 
     public fun withdraw_with_capability<TokenType: resource>(
-        cap: &WithdrawCapability<TokenType>,
+        _cap: &WithdrawCapability<TokenType>,
         from: address,
         amount: u64,
     ): Token::Coin<TokenType> acquires Balance {
-        // assert(cap.from == from, 401);
-        let max_amount = &cap.max_amount;
-        // check
-        if (Option::is_some(max_amount)) {
-            assert(amount <= *Option::borrow(max_amount), 402);
-        };
         withdraw_from<TokenType>(from, amount)
     }
 

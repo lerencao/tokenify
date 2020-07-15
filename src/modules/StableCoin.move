@@ -77,7 +77,7 @@ module StableCoin {
 
     //// Methods for users of the coin.
 
-    /// User create Account to participate in the StableCoin.
+    /// User creates Account to participate in the StableCoin.
     public fun accept_coin(signer: &signer, max_withdraw_amount: Option::Option<u64>) {
         Balance::accept_token<T>(signer);
         let user_setting = Setting { max_withdraw_amount, frozen: false };

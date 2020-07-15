@@ -11,11 +11,9 @@ module Token {
 
     /// A minting capability allows coins of type `CoinType` to be minted
     resource struct MintCapability<Token: resource> {
-        enabled: bool,
     }
 
     resource struct BurnCapability<Token: resource> {
-        enabled: bool,
     }
 
     struct MintEvent {
@@ -56,49 +54,48 @@ module Token {
         /// The total value for the currency represented by
         /// `CoinType`. Mutable.
         total_value: u128,
-        /// Value of funds that are in the process of being burned
-        preburn_value: u64,
-        //TODO remove this.
-        is_synthetic: bool,
-        // The scaling factor for the coin (i.e. the amount to multiply by
-        // to get to the human-readable reprentation for this currency). e.g. 10^6 for Coin1
+        /// The scaling factor for the coin (i.e. the amount to multiply by
+        /// to get to the human-readable reprentation for this currency). e.g. 10^6 for Coin1
         scaling_factor: u64,
-        // The smallest fractional part (number of decimal places) to be
-        // used in the human-readable representation for the currency (e.g.
-        // 10^2 for Coin1 cents)
+        /// The smallest fractional part (number of decimal places) to be
+        /// used in the human-readable representation for the currency (e.g.
+        /// 10^2 for Coin1 cents)
         fractional_part: u64,
-        // We may want to disable the ability to mint further coins of a
-        // currency while that currency is still around. Mutable.
-        can_mint: bool,
-        // event stream for minting
+        /// event stream for minting
         mint_events: Event::EventHandle<MintEvent>,
-        // event stream for burning
+        /// event stream for burning
         burn_events: Event::EventHandle<BurnEvent>,
-        // event stream for preburn requests
+        /// event stream for preburn requests
         preburn_events: Event::EventHandle<PreburnEvent>,
-        // event stream for cancelled preburn requests
+        /// event stream for cancelled preburn requests
         cancel_burn_events: Event::EventHandle<CancelBurnEvent>,
     }
 
-    // An association account holding this privilege can add/remove the
-    // currencies from the system.
-    struct AddCurrency { }
 
-    ///////////////////////////////////////////////////////////////////////////
-    // Initialization and granting of privileges
-    ///////////////////////////////////////////////////////////////////////////
-    public fun apply_for_mint_capability<TokenType: resource>(
-        signer: &signer,
-        token_address: address,
+    /// Register the type `CoinType` as a currency. Without this, a type
+    /// cannot be used as a coin/currency unit n Libra.
+    public fun register_currency<CoinType: resource>(
+        account: &signer,
+        token: &CoinType,
+        scaling_factor: u64,
+        fractional_part: u64,
     ) {
-        assert(is_registered_in<TokenType>(token_address), 43);
-        move_to(signer, MintCapability<TokenType> { enabled: false })
+        move_to(account, create_mint_capability(token));
+        move_to(account, create_burn_capability(token));
+        move_to(
+            account,
+            CurrencyInfo<CoinType> {
+                total_value: 0,
+                 scaling_factor,
+                fractional_part,
+                mint_events: Event::new_event_handle<MintEvent>(account),
+                burn_events: Event::new_event_handle<BurnEvent>(account),
+                preburn_events: Event::new_event_handle<PreburnEvent>(account),
+                cancel_burn_events: Event::new_event_handle<CancelBurnEvent>(account),
+            },
+        );
     }
 
-    public fun approve_mint_capability<TokenType: resource>(_token: &TokenType, account: address)
-    acquires MintCapability {
-        borrow_global_mut<MintCapability<TokenType>>(account).enabled = true
-    }
 
     /// Used by Token Issuer to revoke `account`'s mint capability.
     public fun remove_mint_capability<TokenType: resource>(
@@ -114,20 +111,20 @@ module Token {
         move_from<MintCapability<TokenType>>(Signer::address_of(signer))
     }
 
-    // Returns a MintCapability for the `CoinType` currency. `CoinType`
-    // must be a registered currency type.
+    /// Returns a MintCapability for the `CoinType` currency. `CoinType`
+    /// must be a registered currency type.
     public fun create_mint_capability<CoinType: resource>(
         _token: &CoinType,
     ): MintCapability<CoinType> {
-        MintCapability<CoinType> { enabled: true }
+        MintCapability<CoinType> { }
     }
 
     public fun destroy_mint_capability<Token: resource>(cap: MintCapability<Token>) {
-        let MintCapability<Token>{ enabled: _enabled } = cap;
+        let MintCapability<Token>{ } = cap;
     }
 
     public fun create_burn_capability<TokenType: resource>(_token: &TokenType): BurnCapability<TokenType> {
-        BurnCapability<TokenType> {enabled: true}
+        BurnCapability<TokenType> {}
     }
 
     public fun remove_burn_capability<TokenType: resource>(_token: &TokenType, account: address): BurnCapability<TokenType>
@@ -135,18 +132,10 @@ module Token {
         move_from<BurnCapability<TokenType>>(account)
     }
 
-    /// There may be situations in which we disallow the further minting of
-    /// coins in the system without removing the currency. This function
-    /// allows the association to control whether or not further coins of
-    /// `CoinType` can be minted or not.
-    public fun update_minting_ability<CoinType: resource>(
-        account: &signer,
-        _token: &CoinType,
-        can_mint: bool,
-    ) acquires CurrencyInfo {
-        let currency_info = borrow_global_mut<CurrencyInfo<CoinType>>(Signer::address_of(account));
-        currency_info.can_mint = can_mint;
+    public fun destroy_burn_capability<Token: resource>(cap: BurnCapability<Token>) {
+        let BurnCapability<Token>{ } = cap;
     }
+
 
     /// Return `amount` coins.
     /// Fails if the sender does not have a published MintCapability.
@@ -168,12 +157,10 @@ module Token {
     public fun mint_with_capability<Token: resource>(
         value: u64,
         token_address: address,
-        capability: &MintCapability<Token>,
+        _capability: &MintCapability<Token>,
     ): Coin<Token> acquires CurrencyInfo {
-        assert(capability.enabled, 10000);
         // update market cap resource to reflect minting
         let info = borrow_global_mut<CurrencyInfo<Token>>(token_address);
-        assert(info.can_mint, 4);
         info.total_value = info.total_value + (value as u128);
         // don't emit mint events for synthetic currenices
         Coin<Token> { value }
@@ -193,29 +180,28 @@ module Token {
     }
 
     public fun burn_with_capability<Token: resource>(
-        capability: &BurnCapability<Token>,
+        _capability: &BurnCapability<Token>,
         token_address: address,
         tokens: Coin<Token>,
     ) acquires CurrencyInfo {
-        assert(capability.enabled, 401);
         let info = borrow_global_mut<CurrencyInfo<Token>>(token_address);
         let Coin {value} = tokens;
         info.total_value = info.total_value - (value as u128);
         // TODO: emit event
     }
 
-    // Create a new Coin::Coin<CoinType> with a value of 0
+    /// Create a new Coin::Coin<CoinType> with a value of 0
     public fun zero<CoinType: resource>(): Coin<CoinType> {
         Coin<CoinType> { value: 0 }
     }
 
-    // Public accessor for the value of a coin
+    /// Public accessor for the value of a coin
     public fun value<CoinType: resource>(coin: &Coin<CoinType>): u64 {
         coin.value
     }
 
-    // Splits the given coin into two and returns them both
-    // It leverages `Self::withdraw` for any verifications of the values
+    /// Splits the given coin into two and returns them both
+    /// It leverages `Self::withdraw` for any verifications of the values
     public fun split<CoinType: resource>(
         coin: Coin<CoinType>,
         amount: u64,
@@ -224,10 +210,10 @@ module Token {
         (coin, other)
     }
 
-    // "Divides" the given coin into two, where the original coin is modified in place
-    // The original coin will have value = original value - `amount`
-    // The new coin will have a value = `amount`
-    // Fails if the coins value is less than `amount`
+    /// "Divides" the given coin into two, where the original coin is modified in place
+    /// The original coin will have value = original value - `amount`
+    /// The new coin will have a value = `amount`
+    /// Fails if the coins value is less than `amount`
     public fun withdraw<CoinType: resource>(
         coin: &mut Coin<CoinType>,
         amount: u64,
@@ -238,8 +224,8 @@ module Token {
         Coin { value: amount }
     }
 
-    // Merges two coins of the same currency and returns a new coin whose
-    // value is equal to the sum of the two inputs
+    /// Merges two coins of the same currency and returns a new coin whose
+    /// value is equal to the sum of the two inputs
     public fun join<CoinType: resource>(
         coin1: Coin<CoinType>,
         coin2: Coin<CoinType>,
@@ -248,60 +234,29 @@ module Token {
         coin1
     }
 
-    // "Merges" the two coins
-    // The coin passed in by reference will have a value equal to the sum of the two coins
-    // The `check` coin is consumed in the process
+    /// "Merges" the two coins
+    /// The coin passed in by reference will have a value equal to the sum of the two coins
+    /// The `check` coin is consumed in the process
     public fun deposit<CoinType: resource>(coin: &mut Coin<CoinType>, check: Coin<CoinType>) {
         let Coin{ value: value } = check;
         coin.value = coin.value + value;
     }
 
-    // Destroy a coin
-    // Fails if the value is non-zero
-    // The amount of Coin in the system is a tightly controlled property,
-    // so you cannot "burn" any non-zero amount of Coin
+    /// Destroy a coin
+    /// Fails if the value is non-zero
+    /// The amount of Coin in the system is a tightly controlled property,
+    /// so you cannot "burn" any non-zero amount of Coin
     public fun destroy_zero<CoinType: resource>(coin: Coin<CoinType>) {
         let Coin{ value: value } = coin;
         assert(value == 0, 5)
     }
 
-    ///////////////////////////////////////////////////////////////////////////
-    // Definition of Currencies
-    ///////////////////////////////////////////////////////////////////////////
-
-    // Register the type `CoinType` as a currency. Without this, a type
-    // cannot be used as a coin/currency unit n Libra.
-    public fun register_currency<CoinType: resource>(
-        account: &signer,
-        token: &CoinType,
-        scaling_factor: u64,
-        fractional_part: u64,
-    ) {
-        move_to(account, create_mint_capability(token));
-        move_to(account, create_burn_capability(token));
-        move_to(
-            account,
-            CurrencyInfo<CoinType> {
-                total_value: 0,
-                preburn_value: 0,
-                is_synthetic: false,
-                scaling_factor,
-                fractional_part,
-                can_mint: true,
-                mint_events: Event::new_event_handle<MintEvent>(account),
-                burn_events: Event::new_event_handle<BurnEvent>(account),
-                preburn_events: Event::new_event_handle<PreburnEvent>(account),
-                cancel_burn_events: Event::new_event_handle<CancelBurnEvent>(account),
-            },
-        );
-    }
-
-    // Return the total amount of currency minted of type `CoinType`
+    /// Return the total amount of currency minted of type `CoinType`
     public fun market_cap<CoinType: resource>(token_address: address): u128 acquires CurrencyInfo {
         borrow_global<CurrencyInfo<CoinType>>(token_address).total_value
     }
 
-    // Return true if the type `CoinType` is a registered in `token_address`.
+    /// Return true if the type `CoinType` is a registered in `token_address`.
     public fun is_registered_in<CoinType: resource>(token_address: address): bool {
         exists<CurrencyInfo<CoinType>>(token_address)
     }
