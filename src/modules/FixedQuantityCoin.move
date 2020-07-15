@@ -26,13 +26,10 @@ module FixedQuantityCoin {
         // register currency.
         Token::register_currency<T>(signer, &t, 1000, 1000);
         Balance::accept_token<T>(signer);
-
         TrivalTransfer::plug_in<T>(signer, &t);
-
         // Mint all to myself at the beginning.
         let minted_token = Token::mint<T>(signer, TOTAL_SUPPLY, TOKEN_ADDRESS);
         Balance::deposit_to(Signer::address_of(signer), minted_token);
-
         // destroy mint cap from myself.
         let mint_cap = Token::remove_my_mint_capability<T>(signer);
         Token::destroy_mint_capability(mint_cap);

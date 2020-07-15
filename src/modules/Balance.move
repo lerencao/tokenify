@@ -7,8 +7,7 @@ module Balance {
         coin: Token::Coin<TokenType>,
     }
 
-    resource struct WithdrawCapability<TokenType: resource> {
-    }
+    resource struct WithdrawCapability<TokenType: resource> { }
 
     /// `Signer` calls this method to accept the Coin.
     public fun accept_token<TokenType: resource>(signer: &signer) {
@@ -20,7 +19,7 @@ module Balance {
     public fun create_withdraw_capability<TokenType: resource>(
         _token: &TokenType,
     ): WithdrawCapability<TokenType> {
-        WithdrawCapability<TokenType> { }
+        WithdrawCapability<TokenType> {}
     }
 
     /// Get the balance of `user`
@@ -36,7 +35,6 @@ module Balance {
         deposit_to(receiver, withdrawed_token);
     }
     */
-
     public fun withdraw<TokenType: resource>(signer: &signer, amount: u64): Token::Coin<TokenType>
     acquires Balance {
         let my_balance = borrow_global_mut<Balance<TokenType>>(Signer::address_of(signer));

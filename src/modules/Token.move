@@ -10,11 +10,9 @@ module Token {
     }
 
     /// A minting capability allows coins of type `CoinType` to be minted
-    resource struct MintCapability<Token: resource> {
-    }
+    resource struct MintCapability<Token: resource> { }
 
-    resource struct BurnCapability<Token: resource> {
-    }
+    resource struct BurnCapability<Token: resource> { }
 
     struct MintEvent {
         /// funds added to the system
@@ -71,7 +69,6 @@ module Token {
         cancel_burn_events: Event::EventHandle<CancelBurnEvent>,
     }
 
-
     /// Register the type `CoinType` as a currency. Without this, a type
     /// cannot be used as a coin/currency unit n Libra.
     public fun register_currency<CoinType: resource>(
@@ -86,7 +83,7 @@ module Token {
             account,
             CurrencyInfo<CoinType> {
                 total_value: 0,
-                 scaling_factor,
+                scaling_factor,
                 fractional_part,
                 mint_events: Event::new_event_handle<MintEvent>(account),
                 burn_events: Event::new_event_handle<BurnEvent>(account),
@@ -95,7 +92,6 @@ module Token {
             },
         );
     }
-
 
     /// Used by Token Issuer to revoke `account`'s mint capability.
     public fun remove_mint_capability<TokenType: resource>(
@@ -116,26 +112,29 @@ module Token {
     public fun create_mint_capability<CoinType: resource>(
         _token: &CoinType,
     ): MintCapability<CoinType> {
-        MintCapability<CoinType> { }
+        MintCapability<CoinType> {}
     }
 
     public fun destroy_mint_capability<Token: resource>(cap: MintCapability<Token>) {
-        let MintCapability<Token>{ } = cap;
+        let MintCapability<Token>{  } = cap;
     }
 
-    public fun create_burn_capability<TokenType: resource>(_token: &TokenType): BurnCapability<TokenType> {
+    public fun create_burn_capability<TokenType: resource>(
+        _token: &TokenType,
+    ): BurnCapability<TokenType> {
         BurnCapability<TokenType> {}
     }
 
-    public fun remove_burn_capability<TokenType: resource>(_token: &TokenType, account: address): BurnCapability<TokenType>
-    acquires BurnCapability {
+    public fun remove_burn_capability<TokenType: resource>(
+        _token: &TokenType,
+        account: address,
+    ): BurnCapability<TokenType> acquires BurnCapability {
         move_from<BurnCapability<TokenType>>(account)
     }
 
     public fun destroy_burn_capability<Token: resource>(cap: BurnCapability<Token>) {
-        let BurnCapability<Token>{ } = cap;
+        let BurnCapability<Token>{  } = cap;
     }
-
 
     /// Return `amount` coins.
     /// Fails if the sender does not have a published MintCapability.
@@ -166,7 +165,6 @@ module Token {
         Coin<Token> { value }
     }
 
-
     public fun burn<TokenType: resource>(
         account: &signer,
         token_address: address,
@@ -185,9 +183,10 @@ module Token {
         tokens: Coin<Token>,
     ) acquires CurrencyInfo {
         let info = borrow_global_mut<CurrencyInfo<Token>>(token_address);
-        let Coin {value} = tokens;
+        let Coin{ value: value } = tokens;
         info.total_value = info.total_value - (value as u128);
         // TODO: emit event
+
     }
 
     /// Create a new Coin::Coin<CoinType> with a value of 0
@@ -260,6 +259,5 @@ module Token {
     public fun is_registered_in<CoinType: resource>(token_address: address): bool {
         exists<CurrencyInfo<CoinType>>(token_address)
     }
-
 }
 }

@@ -68,7 +68,6 @@ module StableCoin {
         borrow_global_mut<Setting>(user).frozen = true;
     }
 
-
     /// Admin can unban user.
     public fun defreeze(signer: &signer, user: address) acquires Setting {
         assert(Signer::address_of(signer) == TOKEN_ADDRESS, 401);

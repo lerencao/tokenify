@@ -1,10 +1,10 @@
 address 0x1 {
-/// A convenient module for Token who just want to have a trival transfer functionality.
-/// Token issuer plugs in the module, and `transfer` works.
+/// A convenient module for Token who just want to have a trival transfer functionality./// Token issuer plugs in the module, and `transfer` works.
 module TrivalTransfer {
     use 0x1::Balance;
     use 0x1::Signer;
     use 0x1::Token;
+
     resource struct SharedCapability<TokenType: resource> {
         withdraw_cap: Balance::WithdrawCapability<TokenType>,
     }
@@ -17,9 +17,11 @@ module TrivalTransfer {
     }
 
     /// Anyone can call this method to withdraw some tokens from himself.
-    public fun withdraw<TokenType: resource>(signer: &signer, token_address: address, amount: u64): Token::Coin<TokenType>
-    acquires SharedCapability
-    {
+    public fun withdraw<TokenType: resource>(
+        signer: &signer,
+        token_address: address,
+        amount: u64,
+    ): Token::Coin<TokenType> acquires SharedCapability {
         let shared_cap = borrow_global<SharedCapability<TokenType>>(token_address);
         Balance::withdraw_with_capability<TokenType>(
             &shared_cap.withdraw_cap,
