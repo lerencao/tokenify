@@ -7,16 +7,6 @@ module BiteCoin {
     use 0x1::TrivalTransfer;
     use 0x1::FreelyBurn;
 
-    const TOKEN_ADDRESS: address = 0x1;
-    const COIN: u64 = 100000000;
-    /// Total Supply: 21 million * 2.
-    const TOTAL_SUPPLY: u64 = 21000000 * 2;
-    /// Initial Mint: 21 million. (50% of the total supply)
-    const INITIAL_MINT_AMOUNT: u64 = 21000000;
-    /// every 21w block, can mint 21w * `block_subsidy` to issuer.
-    const HALVING_INTERVAL: u64 = 210000;
-    const INITIAL_SUBSIDY: u64 = 50;
-
     /// CoinType
     resource struct T { }
 
@@ -26,16 +16,49 @@ module BiteCoin {
         start_block_height: u64,
     }
 
+    // const TOKEN_ADDRESS: address = 0x1;
+    // const COIN: u64 = 100000000;
+    // /// Total Supply: 21 million * 2.
+    // const TOTAL_SUPPLY: u64 = 21000000 * 2;
+    // /// Initial Mint: 21 million. (50% of the total supply)
+    // const INITIAL_MINT_AMOUNT: u64 = 21000000;
+    // /// every 21w block, can mint 21w * `block_subsidy` to issuer.
+    // const HALVING_INTERVAL: u64 = 210000;
+    // const INITIAL_SUBSIDY: u64 = 50;
+    fun token_address(): address {
+        0x1
+    }
+
+    fun total_supply(): u64 {
+        21000000 * 2
+    }
+
+    fun initial_mint_amount(): u64 {
+        21000000
+    }
+
+    fun halving_interval(): u64 {
+        210000
+    }
+
+    fun initial_subsidy(): u64 {
+        50
+    }
+
     public fun initialize(signer: &signer) {
-        assert(Signer::address_of(signer) == TOKEN_ADDRESS, 401);
+        assert(Signer::address_of(signer) == token_address(), 401);
         let t = T {};
         // register currency.
         Token::register_currency<T>(signer, &t, 1000, 1000);
         Balance::accept_token<T>(signer);
         TrivalTransfer::plug_in<T>(signer, &t);
         // Mint to myself at the beginning.
-        let minted_token = Token::mint<T>(signer, INITIAL_MINT_AMOUNT * COIN, TOKEN_ADDRESS);
-        Balance::deposit_to(TOKEN_ADDRESS, minted_token);
+        let minted_token = Token::mint<T>(
+            signer,
+            initial_mint_amount() * 100000000,
+            token_address(),
+        );
+        Balance::deposit_to(token_address(), minted_token);
         let mint_cap = Token::remove_my_mint_capability<T>(signer);
         let block_height = Block::get_current_block_height();
         let mint_manager = MintManager {
@@ -53,9 +76,9 @@ module BiteCoin {
     /// Anyone can trigger a mint action if it's time to mint.
     public fun trigger_mint(_signer: &signer) acquires MintManager {
         let current_block_height = Block::get_current_block_height();
-        let mint_manager = borrow_global_mut<MintManager>(TOKEN_ADDRESS);
+        let mint_manager = borrow_global_mut<MintManager>(token_address());
         let interval = current_block_height - mint_manager.start_block_height;
-        let halvings = interval / HALVING_INTERVAL;
+        let halvings = interval / halving_interval();
         let mint_times = mint_manager.mint_times;
         assert(mint_times <= halvings, 500);
         if (halvings == mint_times) {
@@ -64,17 +87,18 @@ module BiteCoin {
         if (mint_times >= 64) {
             return
         };
-        let mint_amount = HALVING_INTERVAL * INITIAL_SUBSIDY * COIN >> (mint_times as u8);
+        let block_subsidy = initial_subsidy() * 100000000 >> (mint_times as u8);
+        let mint_amount = halving_interval() * block_subsidy;
         mint_manager.mint_times = mint_manager.mint_times + 1;
         if (mint_amount == 0) {
             return
         };
         let minted_token = Token::mint_with_capability<T>(
             mint_amount,
-            TOKEN_ADDRESS,
+            token_address(),
             &mint_manager.mint_cap,
         );
-        Balance::deposit_to(TOKEN_ADDRESS, minted_token);
+        Balance::deposit_to(token_address(), minted_token);
     }
 
     /// Get the balance of `user`
@@ -83,13 +107,13 @@ module BiteCoin {
     }
 
     public fun transfer_to(signer: &signer, receiver: address, amount: u64) {
-        TrivalTransfer::transfer<T>(signer, TOKEN_ADDRESS, receiver, amount);
+        TrivalTransfer::transfer<T>(signer, token_address(), receiver, amount);
     }
 
     /// Anyone can burn his money.
     public fun burn(signer: &signer, amount: u64) {
-        let coins = TrivalTransfer::withdraw<T>(signer, TOKEN_ADDRESS, amount);
-        FreelyBurn::burn<T>(TOKEN_ADDRESS, coins);
+        let coins = TrivalTransfer::withdraw<T>(signer, token_address(), amount);
+        FreelyBurn::burn<T>(token_address(), coins);
     }
 }
 }

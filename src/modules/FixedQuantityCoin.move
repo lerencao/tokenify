@@ -14,21 +14,21 @@ module FixedQuantityCoin {
     /// CoinType of FixedQuantityCoin
     resource struct T { }
 
-    const TOKEN_ADDRESS: address = 0x1;
+    // const TOKEN_ADDRESS: address = 0x1;
     /// Total Supply: 100 million.
-    const TOTAL_SUPPLY: u64 = 100000000;
+    // const TOTAL_SUPPLY: u64 = 100000000;
 
     /// Initialize method of the FixedQuantityCoin.
     /// should only be called once by the Token Issuer.
     public fun initialize(signer: &signer) {
-        assert(Signer::address_of(signer) == TOKEN_ADDRESS, 401);
+        assert(Signer::address_of(signer) == token_address(), 401);
         let t = T {};
         // register currency.
         Token::register_currency<T>(signer, &t, 1000, 1000);
         Balance::accept_token<T>(signer);
         TrivalTransfer::plug_in<T>(signer, &t);
         // Mint all to myself at the beginning.
-        let minted_token = Token::mint<T>(signer, TOTAL_SUPPLY, TOKEN_ADDRESS);
+        let minted_token = Token::mint<T>(signer, total_supply(), token_address());
         Balance::deposit_to(Signer::address_of(signer), minted_token);
         // destroy mint cap from myself.
         let mint_cap = Token::remove_my_mint_capability<T>(signer);
@@ -49,7 +49,15 @@ module FixedQuantityCoin {
 
     /// Transfer `amount` of Coin from `signer` to `receiver`.
     public fun transfer_to(signer: &signer, receiver: address, amount: u64) {
-        TrivalTransfer::transfer<T>(signer, TOKEN_ADDRESS, receiver, amount);
+        TrivalTransfer::transfer<T>(signer, token_address(), receiver, amount);
+    }
+
+    public fun token_address(): address {
+        0x1
+    }
+
+    fun total_supply(): u64 {
+        100000000
     }
 }
 }

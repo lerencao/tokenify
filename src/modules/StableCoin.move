@@ -5,8 +5,7 @@ module StableCoin {
     use 0x1::Balance;
     use 0x1::Option;
 
-    const TOKEN_ADDRESS: address = 0x1;
-
+    // const token_address(): address = 0x1;
     resource struct T { }
 
     resource struct Setting {
@@ -18,11 +17,15 @@ module StableCoin {
         withdraw_cap: Balance::WithdrawCapability<T>,
     }
 
+    public fun token_address(): address {
+        0x1
+    }
+
     //// Methods for Token Issuer.
 
     /// Initialize StableCoin.
     public fun initialize(signer: &signer) {
-        assert(Signer::address_of(signer) == TOKEN_ADDRESS, 401);
+        assert(Signer::address_of(signer) == token_address(), 401);
         let t = T {};
         // register currency.
         Token::register_currency<T>(signer, &t, 1000, 1000);
@@ -36,20 +39,20 @@ module StableCoin {
     /// Mint Some Coin to `receiver`.
     /// can only be called by address who has `T`.
     public fun mint_to(signer: &signer, amount: u64, receiver: address) {
-        let tokens = Token::mint<T>(signer, amount, TOKEN_ADDRESS);
+        let tokens = Token::mint<T>(signer, amount, token_address());
         Balance::deposit_to(receiver, tokens);
     }
 
     /// burn `amount` coin of my own.
     /// can only be called by address who has `T`.
     public fun burn(signer: &signer, amount: u64) acquires SharedCapability {
-        let shared_cap = borrow_global<SharedCapability>(TOKEN_ADDRESS);
+        let shared_cap = borrow_global<SharedCapability>(token_address());
         let coins_to_burn = Balance::withdraw_with_capability<T>(
             &shared_cap.withdraw_cap,
             Signer::address_of(signer),
             amount,
         );
-        Token::burn(signer, TOKEN_ADDRESS, coins_to_burn);
+        Token::burn(signer, token_address(), coins_to_burn);
     }
 
     /// Admin can update anyone's setting.
@@ -58,19 +61,19 @@ module StableCoin {
         user: address,
         max_withdraw_amount: Option::Option<u64>,
     ) acquires Setting {
-        assert(Signer::address_of(signer) == TOKEN_ADDRESS, 401);
+        assert(Signer::address_of(signer) == token_address(), 401);
         borrow_global_mut<Setting>(user).max_withdraw_amount = max_withdraw_amount;
     }
 
     /// Admin can ban user.
     public fun ban_user(signer: &signer, user: address) acquires Setting {
-        assert(Signer::address_of(signer) == TOKEN_ADDRESS, 401);
+        assert(Signer::address_of(signer) == token_address(), 401);
         borrow_global_mut<Setting>(user).frozen = true;
     }
 
     /// Admin can unban user.
     public fun defreeze(signer: &signer, user: address) acquires Setting {
-        assert(Signer::address_of(signer) == TOKEN_ADDRESS, 401);
+        assert(Signer::address_of(signer) == token_address(), 401);
         borrow_global_mut<Setting>(user).frozen = false;
     }
 
@@ -94,7 +97,7 @@ module StableCoin {
         if (Option::is_some(max_amount)) {
             assert(amount <= *Option::borrow(max_amount), 402);
         };
-        let shared_cap = borrow_global<SharedCapability>(TOKEN_ADDRESS);
+        let shared_cap = borrow_global<SharedCapability>(token_address());
         let coins = Balance::withdraw_with_capability<T>(
             &shared_cap.withdraw_cap,
             Signer::address_of(signer),
