@@ -25,7 +25,7 @@ module BiteCoin {
     // /// every 21w block, can mint 21w * `block_subsidy` to issuer.
     // const HALVING_INTERVAL: u64 = 210000;
     // const INITIAL_SUBSIDY: u64 = 50;
-    fun token_address(): address {
+    public fun token_address(): address {
         0x1
     }
 
@@ -33,15 +33,15 @@ module BiteCoin {
         21000000 * 2
     }
 
-    fun initial_mint_amount(): u64 {
+    public fun initial_mint_amount(): u64 {
         21000000
     }
 
-    fun halving_interval(): u64 {
+    public fun halving_interval(): u64 {
         210000
     }
 
-    fun initial_subsidy(): u64 {
+    public fun initial_subsidy(): u64 {
         50
     }
 

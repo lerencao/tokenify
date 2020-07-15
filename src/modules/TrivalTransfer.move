@@ -1,5 +1,6 @@
 address 0x1 {
-/// A convenient module for Token who just want to have a trival transfer functionality./// Token issuer plugs in the module, and `transfer` works.
+/// A convenient module for Token who just want to have a trival transfer functionality.
+/// Token issuer plugs in the module, and `transfer` works.
 module TrivalTransfer {
     use 0x1::Balance;
     use 0x1::Signer;

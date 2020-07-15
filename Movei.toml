@@ -3,5 +3,5 @@ name = "tokenify"
 description = ""
 
 [profile]
-skip_stdlib_deps = false
 dialect = "Libra"
+stdlib_path = "/Users/annali007/projects/libra/libra/language/stdlib/modules"
